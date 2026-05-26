@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>单词消消乐</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+  min-height:100vh;
+  background:linear-gradient(135deg,#e8f0fe 0%,#f0e6ff 50%,#e8f0fe 100%);
+  display:flex;justify-content:center;align-items:center;
+  user-select:none;
+}
+.container{width:100%;max-width:900px;padding:20px}
+.header{
+  background:#fff;border-radius:16px;padding:18px 28px;margin-bottom:20px;
+  box-shadow:0 4px 20px rgba(0,0,0,0.06);
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;
+}
+.header-item{text-align:center;min-width:60px}
+.header-label{font-size:12px;color:#888;margin-bottom:4px;letter-spacing:1px}
+.header-value{font-size:24px;font-weight:700;color:#333}
+.timer{color:#4a90d9}
+.timer.warning{color:#e74c3c;animation:timerBlink .5s ease-in-out infinite}
+.score{color:#27ae60}
+.combo{color:#f39c12}
+.combo.fire{color:#e74c3c}
+.header-combo{display:flex;align-items:center;gap:6px}
+.combo-badge{
+  background:linear-gradient(135deg,#f39c12,#e74c3c);color:#fff;
+  font-size:11px;padding:2px 8px;border-radius:10px;animation:badgePulse .6s ease-in-out;
+}
+.game-area{display:flex;gap:24px;justify-content:center;align-items:flex-start}
+.column{flex:1;max-width:380px;display:flex;flex-direction:column;gap:10px}
+.column-title{text-align:center;font-size:14px;color:#999;letter-spacing:2px;margin-bottom:4px}
+.card{
+  background:#fff;border:2px solid #e8e8e8;border-radius:12px;padding:16px 20px;
+  text-align:center;font-size:20px;font-weight:600;cursor:pointer;
+  transition:all .2s ease;box-shadow:0 2px 8px rgba(0,0,0,0.04);position:relative;
+}
+.card:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,0.1);border-color:#b8c8e8}
+.card.cn-card{color:#3a5ba0;border-left:4px solid #4a90d9}
+.card.en-card{color:#2d6a4f;border-left:4px solid #27ae60}
+.card.selected{transform:scale(1.04);border-color:#4a90d9;box-shadow:0 0 0 3px rgba(74,144,217,0.25),0 6px 20px rgba(74,144,217,0.2)}
+.card.correct{animation:correctPop .5s ease forwards}
+.card.wrong{animation:shake .5s ease;border-color:#e74c3c!important;background:#fff5f5}
+.card.eliminated{animation:eliminate .4s ease forwards;pointer-events:none}
+
+@keyframes correctPop{0%{transform:scale(1)}50%{transform:scale(1.08);background:#e8f5e9}100%{transform:scale(1)}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+@keyframes eliminate{0%{transform:scale(1);opacity:1}50%{transform:scale(1.1);opacity:.5}100%{transform:scale(0);opacity:0}}
+@keyframes timerBlink{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes badgePulse{0%{transform:scale(0)}70%{transform:scale(1.2)}100%{transform:scale(1)}}
+
+.combo-popup{
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);
+  font-size:48px;font-weight:900;pointer-events:none;z-index:100;
+  text-shadow:0 4px 12px rgba(243,156,18,0.5);
+  animation:comboPopup 1s ease-out forwards;
+}
+.combo-popup.x2{color:#f39c12}.combo-popup.x3{color:#e67e22}.combo-popup.x4{color:#e74c3c}
+@keyframes comboPopup{
+  0%{transform:translate(-50%,-50%) scale(0);opacity:1}
+  30%{transform:translate(-50%,-50%) scale(1.3);opacity:1}
+  100%{transform:translate(-50%,-50%) scale(1);opacity:0}
+}
+
+.particle{
+  position:fixed;pointer-events:none;z-index:99;width:8px;height:8px;border-radius:50%;
+  animation:particleBurst .7s ease-out forwards;
+}
+@keyframes particleBurst{
+  0%{transform:translate(0,0) scale(1);opacity:1}
+  100%{transform:translate(var(--dx),var(--dy)) scale(0);opacity:0}
+}
+
+.overlay{
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;
+  justify-content:center;align-items:center;
+}
+.overlay.show{display:flex}
+
+.panel{
+  background:#fff;border-radius:20px;padding:36px 40px;text-align:center;
+  min-width:360px;max-width:440px;box-shadow:0 20px 60px rgba(0,0,0,0.2);
+  animation:panelIn .4s ease;
+}
+@keyframes panelIn{0%{transform:scale(.8);opacity:0}100%{transform:scale(1);opacity:1}}
+.panel-icon{font-size:56px;margin-bottom:12px}
+.panel h2{font-size:26px;margin-bottom:8px;color:#333}
+.panel p{color:#777;margin:6px 0;font-size:15px}
+.panel .highlight{font-size:36px;font-weight:900;color:#f39c12}
+.panel .score-detail{font-size:13px;color:#999;margin:4px 0}
+.panel button{
+  margin:8px 6px;padding:12px 24px;font-size:15px;font-weight:600;
+  border:none;border-radius:10px;cursor:pointer;transition:all .2s;letter-spacing:1px;
+}
+.btn-primary{
+  background:linear-gradient(135deg,#4a90d9,#6c5ce7);color:#fff;
+}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(74,144,217,0.4)}
+.btn-secondary{background:#f0f0f0;color:#555}
+.btn-secondary:hover{background:#e0e0e0}
+
+.footer{display:flex;justify-content:center;gap:12px;margin-top:20px}
+.footer button{
+  padding:10px 24px;font-size:14px;border:1px solid #ddd;border-radius:8px;
+  background:#fff;cursor:pointer;transition:all .2s;color:#666;letter-spacing:1px;
+}
+.footer button:hover{border-color:#4a90d9;color:#4a90d9}
+
+@media(max-width:700px){
+  .game-area{flex-direction:column;align-items:center}
+  .column{max-width:100%;width:100%}
+  .card{font-size:17px;padding:12px 16px}
+  .header{padding:12px 16px}
+  .header-value{font-size:20px}
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <div class="header-item"><div class="header-label">关卡</div><div class="header-value" id="lv">1</div></div>
+    <div class="header-item"><div class="header-label">倒计时</div><div class="header-value timer" id="tm">90</div></div>
+    <div class="header-item"><div class="header-label">分数</div><div class="header-value score" id="sc">0</div></div>
+    <div class="header-item">
+      <div class="header-label">连击</div>
+      <div class="header-combo"><span class="header-value combo" id="cb">0</span><span class="combo-badge" id="cbb" style="display:none"></span></div>
+    </div>
+    <div class="header-item"><div class="header-label">最高连击</div><div class="header-value" id="mcb" style="color:#e74c3c">0</div></div>
+  </div>
+  <div class="game-area">
+    <div class="column" id="cnCol"><div class="column-title">中 文</div></div>
+    <div class="column" id="enCol"><div class="column-title">English</div></div>
+  </div>
+</div>
+
+<div class="overlay" id="ov">
+  <div class="panel" id="pn"></div>
+</div>
+
+<script>
+// === 词汇库 ===
+var WB = [
+  {c:"猫",e:"Cat"},{c:"狗",e:"Dog"},{c:"鸟",e:"Bird"},{c:"鱼",e:"Fish"},
+  {c:"马",e:"Horse"},{c:"兔子",e:"Rabbit"},{c:"老虎",e:"Tiger"},{c:"大象",e:"Elephant"},
+  {c:"狮子",e:"Lion"},{c:"猴子",e:"Monkey"},{c:"熊猫",e:"Panda"},{c:"蛇",e:"Snake"},
+  {c:"苹果",e:"Apple"},{c:"香蕉",e:"Banana"},{c:"橙子",e:"Orange"},{c:"葡萄",e:"Grape"},
+  {c:"西瓜",e:"Watermelon"},{c:"草莓",e:"Strawberry"},{c:"面包",e:"Bread"},{c:"牛奶",e:"Milk"},
+  {c:"鸡蛋",e:"Egg"},{c:"米饭",e:"Rice"},{c:"蛋糕",e:"Cake"},
+  {c:"书",e:"Book"},{c:"桌子",e:"Table"},{c:"椅子",e:"Chair"},{c:"门",e:"Door"},
+  {c:"窗户",e:"Window"},{c:"手机",e:"Phone"},{c:"电脑",e:"Computer"},{c:"笔",e:"Pen"},
+  {c:"杯子",e:"Cup"},{c:"钥匙",e:"Key"},
+  {c:"红色",e:"Red"},{c:"蓝色",e:"Blue"},{c:"绿色",e:"Green"},{c:"黄色",e:"Yellow"},
+  {c:"黑色",e:"Black"},{c:"白色",e:"White"},{c:"紫色",e:"Purple"},
+  {c:"跑",e:"Run"},{c:"走",e:"Walk"},{c:"跳",e:"Jump"},{c:"吃",e:"Eat"},
+  {c:"喝",e:"Drink"},{c:"睡觉",e:"Sleep"},{c:"读书",e:"Read"},{c:"写",e:"Write"},
+  {c:"唱歌",e:"Sing"},{c:"游泳",e:"Swim"},
+  {c:"太阳",e:"Sun"},{c:"月亮",e:"Moon"},{c:"星星",e:"Star"},{c:"山",e:"Mountain"},
+  {c:"河流",e:"River"},{c:"花",e:"Flower"},{c:"树",e:"Tree"},{c:"雨",e:"Rain"},{c:"雪",e:"Snow"},
+  {c:"头",e:"Head"},{c:"眼睛",e:"Eye"},{c:"鼻子",e:"Nose"},{c:"嘴巴",e:"Mouth"},
+  {c:"耳朵",e:"Ear"},{c:"手",e:"Hand"},{c:"脚",e:"Foot"},
+  {c:"爸爸",e:"Father"},{c:"妈妈",e:"Mother"},{c:"哥哥",e:"Brother"},{c:"姐姐",e:"Sister"},
+  {c:"爷爷",e:"Grandfather"},{c:"奶奶",e:"Grandmother"},{c:"朋友",e:"Friend"},{c:"老师",e:"Teacher"}
+];
+
+// === 关卡 ===
+var LV = [
+  {n:"第1关 · 入门",p:6,t:90},
+  {n:"第2关 · 初级",p:8,t:75},
+  {n:"第3关 · 中级",p:10,t:60},
+  {n:"第4关 · 高级",p:12,t:50},
+  {n:"第5关 · 挑战",p:15,t:45}
+];
+
+// === 状态 ===
+var lv=0, sc=0, cb=0, mcb=0, tsc=0;
+var sel=null, tLeft=0, tID=null, mc=0, tp=0, cw=[], active=false;
+
+// === DOM ===
+var cnCol=document.getElementById("cnCol"), enCol=document.getElementById("enCol");
+var lvD=document.getElementById("lv"), tmD=document.getElementById("tm");
+var scD=document.getElementById("sc"), cbD=document.getElementById("cb");
+var cbb=document.getElementById("cbb"), mcbD=document.getElementById("mcb");
+var ov=document.getElementById("ov"), pn=document.getElementById("pn");
+
+// === 音效 ===
+var ctx=null;
+function gctx(){
+  if(!ctx){ctx=new(window.AudioContext||window.webkitAudioContext)()}
+  if(ctx.state==="suspended")ctx.resume();
+  return ctx;
+}
+function ton(f,d,t,g,st){
+  var c=gctx(),o=c.createOscillator(),gn=c.createGain();
+  o.type=t||"sine";o.frequency.setValueAtTime(f,c.currentTime+st);
+  gn.gain.setValueAtTime(g||0.3,c.currentTime+st);
+  gn.gain.exponentialRampToValueAtTime(0.001,c.currentTime+st+d);
+  o.connect(gn);gn.connect(c.destination);
+  o.start(c.currentTime+st);o.stop(c.currentTime+st+d);
+}
+function sOk(){ton(523,.15,"sine",.25,0);ton(659,.15,"sine",.25,.08);ton(784,.25,"sine",.25,.14)}
+function sCb(lv){var b=523,n=Math.min(lv,6);for(var i=0;i<n;i++)ton(b*Math.pow(2,i/6),.12,"sine",.2,i*.06)}
+function sNg(){ton(180,.3,"square",.15,0);ton(150,.35,"square",.12,.08)}
+function sWin(){[523,659,784,1047,784,1047].forEach(function(f,i){ton(f,.2,"sine",.2,i*.1)})}
+function sTk(){ton(880,.05,"sine",.1,0)}
+function sLose(){ton(330,.3,"sawtooth",.15,0);ton(262,.4,"sawtooth",.12,.2);ton(196,.5,"sawtooth",.1,.4)}
+
+// === 粒子 ===
+function sp(x,y,clr,n){
+  n=n||12;
+  for(var i=0;i<n;i++){
+    var p=document.createElement("div");p.className="particle";
+    var a=Math.PI*2*i/n,d=30+Math.random()*50;
+    p.style.cssText="left:"+x+"px;top:"+y+"px;background:"+clr+";--dx:"+Math.cos(a)*d+"px;--dy:"+Math.sin(a)*d+"px";
+    document.body.appendChild(p);
+    p.addEventListener("animationend",function(){p.remove()});
+  }
+}
+
+// === 连击弹窗 ===
+function popCb(lv){
+  if(lv<2)return;
+  var p=document.createElement("div");
+  p.className="combo-popup x"+Math.min(lv,4);
+  p.textContent=lv>=5?"🔥 "+lv+"连击!":lv+"连击!";
+  document.body.appendChild(p);
+  p.addEventListener("animationend",function(){p.remove()});
+}
+
+// === 工具 ===
+function shuf(a){var b=a.slice();for(var i=b.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),t=b[i];b[i]=b[j];b[j]=t}return b}
+
+function pickWords(lv){return shuf(WB).slice(0,LV[lv].p)}
+
+// === 渲染卡片 ===
+function render(){
+  cnCol.innerHTML='<div class="column-title">中 文</div>';
+  enCol.innerHTML='<div class="column-title">English</div>';
+  var cnW=shuf(cw),enW=shuf(cw);
+  cnW.forEach(function(w){
+    var c=document.createElement("div");c.className="card cn-card";
+    c.textContent=w.c;c.dataset.id=w.c+"::"+w.e;c.dataset.lang="cn";
+    c.addEventListener("click",function(){click(c)});
+    cnCol.appendChild(c);
+  });
+  enW.forEach(function(w){
+    var c=document.createElement("div");c.className="card en-card";
+    c.textContent=w.e;c.dataset.id=w.c+"::"+w.e;c.dataset.lang="en";
+    c.addEventListener("click",function(){click(c)});
+    enCol.appendChild(c);
+  });
+}
+
+// === 卡片点击 ===
+function click(c){
+  if(!active)return;
+  if(c.classList.contains("eliminated"))return;
+  if(!sel){sel=c;c.classList.add("selected");return}
+  if(c.dataset.lang===sel.dataset.lang){sel.classList.remove("selected");sel=c;c.classList.add("selected");return}
+  if(c.dataset.id===sel.dataset.id){ok(sel,c)}else{no(sel,c)}
+}
+
+function ok(a,b){
+  var cn=a.dataset.lang==="cn"?a:b, en=a.dataset.lang==="en"?a:b;
+  cb++;if(cb>mcb)mcb=cb;
+  if(cb>=4){sCb(cb);popCb(cb)}else if(cb>=2){sOk();popCb(cb)}else{sOk()}
+  var pt=10;if(cb===2)pt=15;else if(cb===3)pt=20;else if(cb>=4)pt=30;
+  sc+=pt;
+  var r1=cn.getBoundingClientRect(),r2=en.getBoundingClientRect();
+  sp(r1.left+r1.width/2,r1.top+r1.height/2,"#4a90d9",8);
+  sp(r2.left+r2.width/2,r2.top+r2.height/2,"#27ae60",8);
+  cn.classList.remove("selected");en.classList.remove("selected");
+  cn.classList.add("correct");en.classList.add("correct");
+  sel=null;
+  setTimeout(function(){cn.classList.add("eliminated");en.classList.add("eliminated");cn.style.visibility="hidden";en.style.visibility="hidden"},300);
+  mc++;upd();
+  if(mc===tp)win();
+}
+
+function no(a,b){
+  sNg();cb=0;sc=Math.max(0,sc-5);
+  a.classList.remove("selected");b.classList.remove("selected");
+  a.classList.add("wrong");b.classList.add("wrong");sel=null;
+  setTimeout(function(){a.classList.remove("wrong");b.classList.remove("wrong")},500);
+  upd();
+}
+
+function upd(){
+  scD.textContent=sc;cbD.textContent=cb;mcbD.textContent=mcb;
+  if(cb>=3){cbD.classList.add("fire");cbb.style.display="inline-block";cbb.textContent=cb>=5?"🔥"+cb:"×"+cb}
+  else{cbD.classList.remove("fire");cbb.style.display="none"}
+}
+
+// === 计时器 ===
+function startT(){
+  tLeft=LV[lv].t;tmD.textContent=tLeft;tmD.classList.remove("warning");
+  tID=setInterval(function(){
+    tLeft--;tmD.textContent=tLeft;
+    if(tLeft<=10&&tLeft>0){tmD.classList.add("warning");sTk()}
+    if(tLeft<=0){stopT();gameOver()}
+  },1000);
+}
+function stopT(){if(tID){clearInterval(tID);tID=null}}
+
+// === 关卡控制 ===
+function startLv(){
+  cw=pickWords(lv);tp=LV[lv].p;mc=0;cb=0;sel=null;active=true;
+  lvD.textContent=lv+1;upd();render();startT();
+}
+
+function win(){
+  stopT();active=false;sWin();
+  var bonus=tLeft*2;sc+=bonus;tsc+=sc;upd();
+  for(var i=0;i<3;i++){setTimeout(function(j){sp(window.innerWidth*(.3+Math.random()*.4),window.innerHeight*(.3+Math.random()*.4),["#f39c12","#e74c3c","#4a90d9"][j],20)},i*200,i)}
+
+  var btns=[
+    {t:"下一关",c:"btn-primary",a:function(){hidePn();nextLv()}},
+    {t:"重玩本关",c:"btn-secondary",a:function(){hidePn();retryLv()}},
+    {t:"回到第一关",c:"btn-secondary",a:function(){hidePn();goLv(0)}}
+  ];
+
+  if(lv>=LV.length-1){
+    btns[0]={t:"再来一局",c:"btn-primary",a:function(){hidePn();goLv(0)}};
+    showPn("🏆","恭喜全部通关!","剩余时间奖励 +"+bonus+" 分",sc,btns);
+  }else{
+    showPn("🎉",LV[lv].n+" 通关!","剩余时间奖励 +"+bonus+" 分",sc,btns);
+  }
+}
+
+function gameOver(){
+  stopT();active=false;sLose();tsc+=sc;upd();
+  showPn("⏰","时间到!","止步于第 "+(lv+1)+" 关",sc,[
+    {t:"重玩本关",c:"btn-primary",a:function(){hidePn();retryLv()}},
+    {t:"回到第一关",c:"btn-secondary",a:function(){hidePn();goLv(0)}}
+  ]);
+}
+
+function nextLv(){lv++;sc=0;cb=0;mcb=0;startLv()}
+function retryLv(){sc=0;cb=0;mcb=0;startLv()}
+function goLv(l){stopT();lv=l;sc=0;cb=0;mcb=0;tsc=0;startLv()}
+
+// === 面板 ===
+function showPn(icon,title,sub,score,buttons){
+  var h='<div class="panel-icon">'+icon+'</div>';
+  h+='<h2>'+title+'</h2><p>'+sub+'</p>';
+  h+='<div class="highlight">'+score+' 分</div>';
+  h+='<p class="score-detail">本关最高连击: '+mcb+' | 累计总分: '+tsc+'</p>';
+  h+='<div style="margin-top:16px"></div>';
+  pn.innerHTML=h;
+  var bc=pn.querySelector("div[style]");
+  buttons.forEach(function(b){
+    var btn=document.createElement("button");
+    btn.className=b.c;btn.textContent=b.t;
+    btn.addEventListener("click",b.a);
+    bc.appendChild(btn);
+  });
+  ov.classList.add("show");
+}
+
+function hidePn(){ov.classList.remove("show")}
+
+// === 启动 ===
+goLv(0);
+</script>
+</body>
+</html>
